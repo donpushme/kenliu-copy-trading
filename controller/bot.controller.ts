@@ -9,17 +9,19 @@ export const startBot = expressAsyncHandler(
   }
 );
 
-export const stopBot = expressAsyncHandler(() => {
+export const stopBot = expressAsyncHandler(
   async (req: Request, res: Response) => {
     bot.stop();
     res.status(200).json({ message: "The bot has stopped" });
-  };
-});
+  }
+);
 
-export const setting = expressAsyncHandler(() => {
+export const setting = expressAsyncHandler(
   async (req: Request, res: Response) => {
+    console.log("reqest");
     const { settings } = req.body;
-    bot.setting(settings);
+    console.log("here");
+    bot.updateSettings(settings);
     res.status(200).json({ message: "Bot settings changed" });
-  };
-});
+  }
+);

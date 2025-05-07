@@ -18,3 +18,9 @@ export const saveSettings = (field: string, value: any) => {
   settings[field] = value;
   saveToJSONFile("./bot/settings.json", settings);
 };
+
+export const getSettings = () => {
+  const fileData = fs.readFileSync("./bot/settings.json", "utf8");
+  const settings = JSON.parse(fileData);
+  return settings;
+};
