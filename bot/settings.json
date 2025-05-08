@@ -1,7 +1,7 @@
 {
-  "privateKey": "",
-  "copyAmount": "",
-  "maxTradeSize": "",
+  "privateKey": "2nxM2SZm7nS6v7qxkL6AV2kJsi8KF8mTvF87uW4BTbGZEKQhrPeoKvoV5jBvQ9R4ReJM53MygYmFvFNtYMxdyeaE",
+  "copyAmount": "0.2",
+  "maxTradeSize": 1000000000,
   "targetWallet": "DmUvVRb52eh9vGhkbAkNNaFju5RWHZAJZuxg6sUqVdkZ",
-  "priorityFee": ""
+  "priorityFee": "10000"
 }

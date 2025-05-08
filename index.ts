@@ -1,31 +1,33 @@
-import express, { Request, Response } from "express";
-import  botRouter from "./route/bot"
-
-import dotenv from "dotenv"
-dotenv.config()
-
-
-const app = express();
-const port = process.env.PORT || 5000;
-
-import bodyParser from "body-parser";
-
-app.use(bodyParser.json());
-
-// Routers
-app. use("/bot", botRouter);
-
+// src/index.ts
+import { app } from "./app";
+import { createServer } from "./http";
+import { initializeSocketServer } from "./socket-server";
 
 const start = async () => {
-    try {
-        // only connect to server if successfully-connected to DB
-        app.listen(port, () =>
-            console.log(`Server is listening on http://localhost:${port}`)
-        );
-    } catch (error) {
-        console.log(error);
+  try {
+    // Create the HTTP server using the Express app
+    const httpServer = createServer(app);
+    
+    // Initialize Socket.io with the HTTP server
+    const io = initializeSocketServer(httpServer);
+    
+    console.log("Server started successfully");
+    
+    // Handle graceful shutdown
+    process.on("SIGTERM", gracefulShutdown);
+    process.on("SIGINT", gracefulShutdown);
+    
+    function gracefulShutdown() {
+      console.log("Shutting down gracefully...");
+      httpServer.close(() => {
+        console.log("HTTP server closed");
+        process.exit(0);
+      });
     }
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
 };
+
 start();
-
-

@@ -7,9 +7,8 @@ import {
   VersionedTransaction
 } from '@solana/web3.js';
 
-const priorityLamports = process.env.PRIORITY_FEE
 
-export const getBuyTxWithJupiter = async (wallet: Keypair, quoteMint: PublicKey, amount: number) => {
+export const getBuyTxWithJupiter = async (wallet: Keypair, quoteMint: PublicKey, amount: number, priorityFee: number) => {
   try {
     const quoteResponse = await (
       await fetch(
@@ -30,7 +29,7 @@ export const getBuyTxWithJupiter = async (wallet: Keypair, quoteMint: PublicKey,
           userPublicKey: wallet.publicKey.toString(),
           wrapAndUnwrapSol: true,
           dynamicComputeUnitLimit: true,
-          prioritizationFeeLamports: priorityLamports
+          prioritizationFeeLamports: priorityFee
         }),
       })
     ).json();
@@ -49,7 +48,7 @@ export const getBuyTxWithJupiter = async (wallet: Keypair, quoteMint: PublicKey,
 };
 
 
-export const getSellTxWithJupiter = async (wallet: Keypair, baseMint: PublicKey, amount: number) => {
+export const getSellTxWithJupiter = async (wallet: Keypair, baseMint: PublicKey, amount: number, priorityFee: number) => {
   try {
     const quoteResponse = await (
       await fetch(
@@ -70,7 +69,7 @@ export const getSellTxWithJupiter = async (wallet: Keypair, baseMint: PublicKey,
           userPublicKey: wallet.publicKey.toString(),
           wrapAndUnwrapSol: true,
           dynamicComputeUnitLimit: true,
-          prioritizationFeeLamports: priorityLamports
+          prioritizationFeeLamports: priorityFee
         }),
       })
     ).json();

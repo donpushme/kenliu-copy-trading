@@ -16,12 +16,16 @@ import bs58 from "bs58";
 import dotenv from "dotenv";
 import { getAssociatedTokenAddress, NATIVE_MINT } from "@solana/spl-token";
 import { getBuyTxWithJupiter, getSellTxWithJupiter } from "./utils/swapOnlyAmm";
-import { execute, getTokenMarketCap } from "./utils/legacy";
+import { execute, getSolBalance, getTokenMarketCap } from "./utils/legacy";
 import { executeJitoTx } from "./utils/jito";
 import { NumberSchemaDefinition } from "mongoose";
 import { SettingProps } from "./types";
 import { getSettings, saveSettings } from "./utils/commonFunc";
 import WebSocket from "ws";
+import { setting } from "../controller/bot.controller";
+import { token } from "morgan";
+import Trade from "../model/trade";
+import { emitTrade } from "../socket-server";
 
 dotenv.config();
 
@@ -32,7 +36,6 @@ const BASE_MINT_ADDRESS = process.env.BASE_MINT_ADDRESS;
 const BUY_AMOUNT = Number(process.env.BUY_AMOUNT) || 0.001;
 
 const solanaConnection = new Connection(process.env.RPC_ENDPOINT!, "confirmed");
-const keyPair = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
 
 const TARGET_ADDRESS = process.env.TARGET_ADDRESS!;
 const IS_JITO = process.env.IS_JITO!;
@@ -79,14 +82,17 @@ async function handleData(data: any) {
 
       const mint = getMintAccount(result);
 
-      console.log({mint})
+      console.log({ mint });
 
       if (!mint) return;
 
-      // if (mint == NATIVE_MINT.toBase58()) return;
+      const settings = getSettings();
 
-      // console.log(transaction)
-      // const formattedSignature = convertSignature(transaction.signature);
+      if (!settings.privateKey) {
+        console.log("Private key is not set");
+        return;
+      }
+      const keyPair = Keypair.fromSecretKey(bs58.decode(settings.privateKey));
       console.log(
         "========================================= Target Wallet ======================================="
       );
@@ -98,14 +104,27 @@ async function handleData(data: any) {
       console.log(
         "=============================================================================================== \n"
       );
+
+      emitTrade(
+        isBuy,
+        true,
+        Math.floor(Math.abs(tokenAmount)),
+        mint,
+        transaction.signatures[0]
+      );
       if (isBuy) {
         // const amount = BUY_AMOUNT;
         const solBalanceChange = getSolBalanceChange(result);
-        const amount = Math.min(solBalanceChange / 10, 1);
+        console.log({ solBalanceChange });
+        const amount = Math.min(
+          -solBalanceChange / 10,
+          settings?.maxTradeSize || LAMPORTS_PER_SOL
+        );
         const buyTx = await getBuyTxWithJupiter(
           keyPair,
           new PublicKey(mint),
-          Math.floor(amount * LAMPORTS_PER_SOL)
+          Math.floor(amount),
+          settings.priorityFee || 5200
         );
         if (buyTx == null) {
           // console.log(`Error getting swap transaction`)
@@ -124,6 +143,25 @@ async function handleData(data: any) {
         console.log(
           "=============================================================================================== \n"
         );
+
+        if (txSig) {
+          const walletBalance = await getSolBalance(
+            solanaConnection,
+            keyPair.publicKey
+          );
+          const newTrade = await Trade.create({
+            publicKey: keyPair.publicKey.toString(),
+            balance: walletBalance,
+            amount: Math.floor(amount),
+            token: mint,
+            signature: txSig,
+          });
+
+          await newTrade.save();
+
+          emitTrade(true, false, Math.floor(amount), mint, txSig);
+          console.log("Trade created:", tokenTx);
+        }
       } else {
         // const tokenIntAmount = Math.floor(-tokenAmount);
         const mainWalletBaseAta = await getAssociatedTokenAddress(
@@ -137,8 +175,9 @@ async function handleData(data: any) {
         const sellTx = await getSellTxWithJupiter(
           keyPair,
           new PublicKey(mint),
-          Math.floor(Number(mainWalletTokenAmount.amount))
+          Math.floor(Number(mainWalletTokenAmount.amount)),
           // Math.floor(Number(SELL_AMOUNT))
+          settings.priorityFee || 5200
         );
         if (sellTx == null) {
           // console.log(`Error getting swap transaction`)
@@ -160,6 +199,24 @@ async function handleData(data: any) {
         console.log(
           "=============================================================================================== \n"
         );
+        if (txSig) {
+          const walletBalance = await getSolBalance(
+            solanaConnection,
+            keyPair.publicKey
+          );
+          const newTrade = await Trade.create({
+            publicKey: keyPair.publicKey.toString(),
+            balance: walletBalance,
+            amount: Math.floor(-tokenAmount),
+            token: mint,
+            signature: txSig,
+          });
+
+          await newTrade.save();
+
+          emitTrade(false, false, Math.floor(-tokenAmount), mint, txSig);
+          console.log("Trade created:", tokenTx);
+        }
       }
       return true;
     }
@@ -198,15 +255,12 @@ const filterSolAccount = (accounts: any[]): any | null => {
   );
 };
 
-const getBalanceChange = (
-  data: any,
-  token: string
-): number | null => {
+const getBalanceChange = (data: any, token: string): number | null => {
   const preAccounts = data.transaction?.meta?.preTokenBalances;
   const postAccounts = data.transaction?.meta?.postTokenBalances;
 
   if (preAccounts == undefined || postAccounts == undefined) return null;
-  
+
   const preAccount = filterAccount(preAccounts, token);
   const postAccount = filterAccount(postAccounts, token);
   // if (!preAccount && !postAccount) return null;
@@ -218,17 +272,8 @@ const getBalanceChange = (
 };
 
 const getSolBalanceChange = (data: any): number => {
-  const preAccounts = data.transaction?.meta?.preTokenBalances;
-  const postAccounts = data.transaction?.meta?.postTokenBalances;
-  if (preAccounts == undefined || postAccounts == undefined) return 0;
-
-  const preAccount = filterSolAccount(preAccounts);
-  const postAccount = filterSolAccount(postAccounts);
-  // if (!preAccount && !postAccount) return null;
-
-  const preBalance = preAccount ? preAccount.uiTokenAmount?.uiAmount : 0;
-  const postBalance = postAccount ? postAccount.uiTokenAmount?.uiAmount : 0;
-
+  const preBalance = data.transaction?.meta?.preBalances[0];
+  const postBalance = data.transaction?.meta?.postBalances[0];
   return postBalance - preBalance;
 };
 
