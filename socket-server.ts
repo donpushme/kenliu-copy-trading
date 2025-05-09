@@ -2,6 +2,7 @@
 import { Server as SocketIOServer } from "socket.io";
 import { Server as HTTPServer } from "http";
 import dotenv from "dotenv";
+import { ITrade } from "./model/trade";
 
 dotenv.config();
 
@@ -18,8 +19,8 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
     cors: {
       origin: process.env.SOCKET_CORS_ORIGIN || "*",
       methods: ["GET", "POST"],
-      credentials: true
-    }
+      credentials: true,
+    },
   });
 
   // Set up event handlers
@@ -27,9 +28,12 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
     console.log(`Client connected: ${socket.id}`);
 
     // Handle client messages
-    socket.on("message", (data) => {
+    socket.on("trade", (data) => {
       console.log(`Received message from ${socket.id}:`, data);
-      socket.emit("response", { status: "Message received", timestamp: new Date() });
+      socket.emit("response", {
+        status: "Message received",
+        timestamp: new Date(),
+      });
     });
 
     // Custom event for bot status updates
@@ -54,7 +58,9 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
  */
 export function getSocketIO(): SocketIOServer {
   if (!io) {
-    throw new Error("Socket.io has not been initialized. Call initializeSocketServer first.");
+    throw new Error(
+      "Socket.io has not been initialized. Call initializeSocketServer first."
+    );
   }
   return io;
 }
@@ -70,16 +76,28 @@ export function emitToAll(event: string, data: any): void {
 
 export function emitToRoom(room: string, event: string, data: any): void {
   if (!io) {
-    console.error("Socket.io not initialized. Cannot emit event to room:", room, event);
+    console.error(
+      "Socket.io not initialized. Cannot emit event to room:",
+      room,
+      event
+    );
     return;
   }
   io.to(room).emit(event, data);
 }
 
-export function emitTrade(isBuy: boolean, isMaster:boolean, amount: number, token: string, signature: string ): void {
+export function emitTrade(
+  isBuy: boolean,
+  isMaster: boolean,
+  amount: number,
+  walletBalance: number,
+  token: string,
+  signature: string,
+  trades: Array<ITrade>
+): void {
   if (!io) {
     console.error("Socket.io not initialized. Cannot emit trade event");
     return;
   }
-  io.emit("trade", { isBuy, isMaster, amount, token, signature });
+  io.emit("trade", { isBuy, isMaster, amount, walletBalance, token, signature, trades });
 }

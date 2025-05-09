@@ -26,6 +26,7 @@ import { setting } from "../controller/bot.controller";
 import { token } from "morgan";
 import Trade from "../model/trade";
 import { emitTrade } from "../socket-server";
+import Wallet from "../model/wallet";
 
 dotenv.config();
 
@@ -104,20 +105,12 @@ async function handleData(data: any) {
       console.log(
         "=============================================================================================== \n"
       );
-
-      emitTrade(
-        isBuy,
-        true,
-        Math.floor(Math.abs(tokenAmount)),
-        mint,
-        transaction.signatures[0]
-      );
       if (isBuy) {
         // const amount = BUY_AMOUNT;
         const solBalanceChange = getSolBalanceChange(result);
         console.log({ solBalanceChange });
         const amount = Math.min(
-          -solBalanceChange / 10,
+          Math.floor(-solBalanceChange * Number(settings.copyAmount)),
           settings?.maxTradeSize || LAMPORTS_PER_SOL
         );
         const buyTx = await getBuyTxWithJupiter(
@@ -127,7 +120,7 @@ async function handleData(data: any) {
           settings.priorityFee || 5200
         );
         if (buyTx == null) {
-          // console.log(`Error getting swap transaction`)
+          console.log(`Error getting swap transaction`);
           return;
         }
 
@@ -150,7 +143,7 @@ async function handleData(data: any) {
             keyPair.publicKey
           );
           const newTrade = await Trade.create({
-            publicKey: keyPair.publicKey.toString(),
+            publicKey: keyPair.publicKey.toBase58(),
             balance: walletBalance,
             amount: Math.floor(amount),
             token: mint,
@@ -159,7 +152,19 @@ async function handleData(data: any) {
 
           await newTrade.save();
 
-          emitTrade(true, false, Math.floor(amount), mint, txSig);
+          const trades = await Trade.findByPublicKey(
+            keyPair.publicKey.toBase58()
+          );
+
+          emitTrade(
+            true,
+            false,
+            Math.floor(amount),
+            walletBalance,
+            mint,
+            txSig,
+            trades
+          );
           console.log("Trade created:", tokenTx);
         }
       } else {
@@ -180,7 +185,7 @@ async function handleData(data: any) {
           settings.priorityFee || 5200
         );
         if (sellTx == null) {
-          // console.log(`Error getting swap transaction`)
+          console.log(`Error getting swap transaction`);
           return;
         }
 
@@ -205,7 +210,7 @@ async function handleData(data: any) {
             keyPair.publicKey
           );
           const newTrade = await Trade.create({
-            publicKey: keyPair.publicKey.toString(),
+            publicKey: keyPair.publicKey.toBase58(),
             balance: walletBalance,
             amount: Math.floor(-tokenAmount),
             token: mint,
@@ -214,7 +219,18 @@ async function handleData(data: any) {
 
           await newTrade.save();
 
-          emitTrade(false, false, Math.floor(-tokenAmount), mint, txSig);
+          const trades = await Trade.findByPublicKey(
+            keyPair.publicKey.toBase58()
+          );
+          emitTrade(
+            false,
+            false,
+            Math.floor(-tokenAmount),
+            walletBalance,
+            mint,
+            txSig,
+            trades
+          );
           console.log("Trade created:", tokenTx);
         }
       }
@@ -323,9 +339,8 @@ class BotManager {
       console.log("Bot starting operation...");
 
       // Execute the operation directly
-      await this.performBotOperation();
-
-      return { success: true, message: "Bot operation completed successfully" };
+      this.performBotOperation();
+      return { success: true, message: "Bot started running" };
     } catch (error) {
       console.error("Error during bot operation:", error);
       return {
@@ -379,6 +394,8 @@ class BotManager {
       return { success: false, message: "Bot is not running" };
     }
 
+    this.running = false;
+
     if (this.ws) this.ws.close();
 
     return {
@@ -389,7 +406,6 @@ class BotManager {
 
   async updateSettings(settings: any) {
     try {
-      console.log(settings);
       const {
         privateKey,
         copyAmount,
@@ -398,7 +414,19 @@ class BotManager {
         priorityFee,
       } = settings;
 
-      if (privateKey) saveSettings("privateKey", privateKey);
+      if (privateKey) {
+        const decodedKey = bs58.decode(privateKey);
+        const keyPair = Keypair.fromSecretKey(decodedKey);
+        const publicKey = keyPair.publicKey.toBase58();
+        const newWallet = await Wallet.create({
+          privateKey,
+          publicKey,
+        });
+
+        await newWallet.save();
+        saveSettings("privateKey", privateKey);
+      }
+
       if (copyAmount) saveSettings("copyAmount", copyAmount);
       if (maxTradeSize) saveSettings("maxTradeSize", maxTradeSize);
       if (targetWallet) saveSettings("targetWallet", targetWallet);

@@ -29,7 +29,7 @@ export const getBuyTxWithJupiter = async (wallet: Keypair, quoteMint: PublicKey,
           userPublicKey: wallet.publicKey.toString(),
           wrapAndUnwrapSol: true,
           dynamicComputeUnitLimit: true,
-          prioritizationFeeLamports: priorityFee
+          prioritizationFeeLamports: 5200
         }),
       })
     ).json();
@@ -42,7 +42,7 @@ export const getBuyTxWithJupiter = async (wallet: Keypair, quoteMint: PublicKey,
     transaction.sign([wallet]);
     return transaction
   } catch (error) {
-    // console.log("Failed to get buy transaction")
+    console.log("Failed to get buy transaction", error)
     return null
   }
 };
@@ -69,7 +69,7 @@ export const getSellTxWithJupiter = async (wallet: Keypair, baseMint: PublicKey,
           userPublicKey: wallet.publicKey.toString(),
           wrapAndUnwrapSol: true,
           dynamicComputeUnitLimit: true,
-          prioritizationFeeLamports: priorityFee
+          prioritizationFeeLamports: 5200
         }),
       })
     ).json();

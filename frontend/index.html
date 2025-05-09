@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SOL Copy-Trade BOT</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        background: linear-gradient(
+          135deg,
+          #8b5cf6 0%,
+          #6b72f9 30%,
+          #34d399 65%,
+          #10b981 100%
+        );
+        color: #39ff14;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      textarea {
+        width: 100%;
+        height: 160px;
+        background: #000;
+        color: #39ff14;
+        border-radius: 8px;
+        font-family: monospace;
+      }
+
+      .container {
+        width: 95%;
+        max-width: 700px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: #39ff14;
+      }
+
+      .rocket {
+        display: inline-block;
+        animation: spinRocket 4s linear infinite;
+      }
+
+      @keyframes spinRocket {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .controls button {
+        margin: 0.3rem;
+        padding: 0.5rem 1.2rem;
+        border: 2px solid;
+        border-radius: 12px;
+        font-size: 1rem;
+        cursor: pointer;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      #startBtn {
+        background-color: #22c55e;
+        border-color: #16a34a;
+        color: #fff;
+      }
+
+      #stopBtn {
+        background-color: #ef4444;
+        border-color: #dc2626;
+        color: #fff;
+      }
+
+      #settingsBtn {
+        background-color: #eeaa18;
+        border-color: #d9dc26;
+        color: #fff;
+      }
+
+      .pnl {
+        margin-top: 2rem;
+      }
+
+      #pnlDisplay {
+        background: #000;
+        padding: 1rem;
+        border-radius: 8px;
+        font-family: monospace;
+        border: 1px solid #475569;
+        color: #39ff14;
+        margin-bottom: 1rem;
+        text-align: left;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 8px;
+        padding: 8px;
+        margin-top: 1rem;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      /* Tab styling */
+      .tab {
+        overflow: hidden;
+        margin-top: 1rem;
+      }
+
+      .tab button {
+        background-color: rgba(0, 0, 0, 0.7);
+        color: #39ff14;
+        float: left;
+        border: 1px solid #475569;
+        border-bottom: none;
+        outline: none;
+        cursor: pointer;
+        padding: 0.5rem 1rem;
+        transition: 0.3s;
+        font-size: 1rem;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        margin-right: 4px;
+      }
+
+      .tab button:hover {
+        background-color: rgba(0, 0, 0, 0.9);
+      }
+
+      .tab button.active {
+        background-color: #000;
+        border-bottom: 1px solid #000;
+      }
+
+      .tabcontent {
+        display: none;
+        padding: 1rem;
+        background: #000;
+        border: 1px solid #475569;
+        border-radius: 0 8px 8px 8px;
+        margin-bottom: 1rem;
+      }
+
+      .tabcontent.active {
+        display: block;
+      }
+
+      /* Settings form styling */
+      .settings-form {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        text-align: left;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .form-group label {
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+      }
+
+      .form-group input {
+        padding: 0.5rem;
+        background: #111;
+        color: #39ff14;
+        border: 1px solid #475569;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: #39ff14;
+        box-shadow: 0 0 0 2px rgba(57, 255, 20, 0.2);
+      }
+
+      .button-group {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      #saveSettingsBtn {
+        background-color: #22c55e;
+        border-color: #16a34a;
+        color: #fff;
+      }
+
+      #cancelSettingsBtn {
+        background-color: #64748b;
+        border-color: #475569;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1><span class="rocket">🚀</span> SOL Copy-Trade BOT</h1>
+      <div class="controls">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <button id="settingsBtn">Settings</button>
+      </div>
+
+      <div class="tab">
+        <button class="tablinks active" onclick="openTab(event, 'logTab')">Bot Log</button>
+        <button class="tablinks" onclick="openTab(event, 'settingsTab')">Settings</button>
+      </div>
+
+      <div id="logTab" class="tabcontent active">
+        <textarea id="log" readonly placeholder="Log messages...\n"></textarea>
+      </div>
+
+      <div id="settingsTab" class="tabcontent">
+        <form id="settingsForm" class="settings-form">
+          <div class="form-group">
+            <label for="privateKey">Private Key</label>
+            <input type="password" id="privateKey" name="privateKey" placeholder="Enter your private key">
+          </div>
+          <div class="form-group">
+            <label for="targetWallet">Target Wallet</label>
+            <input type="text" id="targetWallet" name="targetWallet" placeholder="Wallet address to copy trades from">
+          </div>
+          <div class="form-group">
+            <label for="copyAmount">Copy Amount (SOL)</label>
+            <input type="text" id="copyAmount" name="copyAmount" placeholder="Amount in SOL">
+          </div>
+          <div class="form-group">
+            <label for="maxTradeSize">Max Trade Size (lamports)</label>
+            <input type="text" id="maxTradeSize" name="maxTradeSize" placeholder="Maximum trade size in lamports">
+          </div>
+          <div class="form-group">
+            <label for="priorityFee">Priority Fee (lamports)</label>
+            <input type="text" id="priorityFee" name="priorityFee" placeholder="Transaction priority fee">
+          </div>
+          <div class="button-group">
+            <button type="button" id="cancelSettingsBtn">Cancel</button>
+            <button type="button" id="saveSettingsBtn">Save Settings</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="pnl">
+        <h2>📈 Wallet Balance Change</h2>
+        <pre id="pnlDisplay">No data yet...</pre>
+        <div class="chart-container">
+          <canvas id="pnlChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const socket = io("http://localhost:5000/");
+      class BotAPI {
+        static async startBot() {
+          return await fetch(`http://localhost:5000/bot/start`);
+        }
+
+        static async stopBot() {
+          return await fetch(`http://localhost:5000/bot/stop`);
+        }
+
+        static async getSettings() {
+          const response = await fetch(`http://localhost:5000/bot/setting`);
+          return await response.json();
+        }
+
+        static async updateSettings(settings) {
+          return await fetch(`http://localhost:5000/bot/setting`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+          });
+        }
+      }
+
+      const logBox = document.getElementById("log");
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const settingsBtn = document.getElementById("settingsBtn");
+      const pnlDisplay = document.getElementById("pnlDisplay");
+      const ctx = document.getElementById("pnlChart").getContext("2d");
+      const logMessages = [];
+
+      // Settings elements
+      const settingsForm = document.getElementById("settingsForm");
+      const privateKeyInput = document.getElementById("privateKey");
+      const targetWalletInput = document.getElementById("targetWallet");
+      const copyAmountInput = document.getElementById("copyAmount");
+      const maxTradeSizeInput = document.getElementById("maxTradeSize");
+      const priorityFeeInput = document.getElementById("priorityFee");
+      const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+      const cancelSettingsBtn = document.getElementById("cancelSettingsBtn");
+
+      // Balance chart data
+      let currentData = [];
+      let chart;
+
+      // Initialize chart
+      function initChart() {
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Wallet Balance (SOL)",
+                data: [],
+                borderColor: "#39ff14",
+                backgroundColor: "rgba(57, 255, 20, 0.1)",
+                borderWidth: 3,
+                pointBackgroundColor: "#39ff14",
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                tension: 0.3,
+                fill: true,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "#39ff14",
+                },
+              },
+              y: {
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "#39ff14",
+                  callback: function (value) {
+                    return value.toFixed(4) + " SOL";
+                  },
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                labels: {
+                  color: "#39ff14",
+                },
+              },
+              tooltip: {
+                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                titleColor: "#39ff14",
+                bodyColor: "#39ff14",
+                borderColor: "#39ff14",
+                borderWidth: 1,
+                callbacks: {
+                  title: function (tooltipItems) {
+                    const index = tooltipItems[0].dataIndex;
+                    return currentData[index]
+                      ? currentData[index].timestamp
+                      : "";
+                  },
+                  label: function (context) {
+                    return "Balance: " + context.raw.toFixed(4) + " SOL";
+                  },
+                },
+              },
+            },
+            animation: {
+              duration: 500,
+            },
+          },
+        });
+      }
+
+      // Tab functionality
+      function openTab(evt, tabName) {
+        const tabcontent = document.getElementsByClassName("tabcontent");
+        for (let i = 0; i < tabcontent.length; i++) {
+          tabcontent[i].classList.remove("active");
+        }
+
+        const tablinks = document.getElementsByClassName("tablinks");
+        for (let i = 0; i < tablinks.length; i++) {
+          tablinks[i].classList.remove("active");
+        }
+
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+      }
+
+      // Initialize the application
+      async function init() {
+        initChart();
+        
+        // Load settings from backend
+        try {
+          const settings = await BotAPI.getSettings();
+          updateSettingsForm(settings);
+          logMessage("ℹ️ Settings loaded from server");
+        } catch (error) {
+          logMessage(`⚠️ Could not load settings: ${error.message}`);
+          // Set default settings if unable to load from server
+          updateSettingsForm({
+            privateKey: "328V5dK5SrkzGRw1m2U91UBoUm85tvnPwhsXGmzXHXcRNAngqUim9qb1ZiVMxnK8MswLr4k9fKYSL8TATBE7nHSJ",
+            copyAmount: "0.2",
+            maxTradeSize: 1000000000,
+            targetWallet: "DmUvVRb52eh9vGhkbAkNNaFju5RWHZAJZuxg6sUqVdkZ",
+            priorityFee: "10000"
+          });
+        }
+      }
+
+      function updateSettingsForm(settings) {
+        privateKeyInput.value = settings.privateKey || '';
+        targetWalletInput.value = settings.targetWallet || '';
+        copyAmountInput.value = settings.copyAmount || '';
+        maxTradeSizeInput.value = settings.maxTradeSize || '';
+        priorityFeeInput.value = settings.priorityFee || '';
+      }
+
+      function getSettingsFromForm() {
+        return {
+          privateKey: privateKeyInput.value,
+          targetWallet: targetWalletInput.value,
+          copyAmount: copyAmountInput.value,
+          maxTradeSize: parseInt(maxTradeSizeInput.value),
+          priorityFee: priorityFeeInput.value
+        };
+      }
+
+      // Calculate PnL
+      function calculatePnL() {
+        if (currentData.length <= 1) {
+          return { amount: 0, percentage: 0 };
+        }
+
+        const initial = currentData[0].balance;
+        const current = currentData[currentData.length - 1].balance;
+        const pnlAmount = current - initial;
+        const pnlPercentage = (pnlAmount / initial) * 100;
+
+        return {
+          amount: pnlAmount.toFixed(4),
+          percentage: pnlPercentage.toFixed(2),
+        };
+      }
+
+      // Update the PnL display
+      function updatePnLDisplay() {
+        if (currentData.length === 0) {
+          pnlDisplay.textContent = "No data yet...";
+          return;
+        }
+
+        const pnl = calculatePnL();
+        const initial = currentData[0].balance;
+        const current = currentData[currentData.length - 1].balance;
+
+        // Determine whether to use green (profit) or red (loss) for the PnL amount
+        const colorClass =
+          parseFloat(pnl.amount) >= 0 ? "color: #39ff14" : "color: #ff3939";
+
+        pnlDisplay.innerHTML = `
+Initial Balance: ${initial.toFixed(4)} SOL
+Current Balance: ${current.toFixed(4)} SOL
+PnL Amount: <span style="${colorClass}">${pnl.amount} SOL (${
+          pnl.percentage
+        }%)</span>
+Data Points: ${currentData.length}
+      `;
+      }
+
+      // Update chart with new data
+      function updateChart() {
+        if (!chart) return;
+
+        chart.data.labels = currentData.map((item) => {
+          const date = new Date(item.timestamp);
+          return date.toLocaleTimeString();
+        });
+
+        chart.data.datasets[0].data = currentData.map((item) => item.balance);
+        chart.update();
+      }
+
+      function logMessage(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const fullMessage = `[${timestamp}] ${message}`;
+
+        logMessages.push(fullMessage);
+
+        // Update the logBox content
+        logBox.value = logMessages.join("\n");
+
+        // Scroll to bottom
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+
+      function makeLog(trade) {
+        const { isBuy, isMaster, amount, walletBalance, token, signature } =
+          trade;
+        const action = isBuy ? "BUY" : "SELL";
+        const amountType = isBuy ? "SOL" : token.slice(0, 4);
+        return `${action} ${signature.slice(
+          0,
+          8
+        )}... ${amount}(lamports)-${amountType} | Wallet: ${walletBalance} SOL`;
+      }
+
+      function drawChart(trade) {
+        if (!trade || !trade.trades) {
+          console.log("Invalid trade data:", trade);
+          return;
+        }
+
+        // Extract trades data
+        const trades = trade.trades;
+
+        currentData = trades.map((trade) => {
+          const timestamp = new Date(trade.updatedAt).toISOString();
+          const walletBalance = parseFloat(trade.balance);
+          return {
+            timestamp: timestamp,
+            balance: walletBalance,
+          };
+        });
+
+        // Update chart and PnL display
+        updateChart();
+        updatePnLDisplay();
+      }
+
+      socket.on("connect", () => {
+        logMessage("ℹ️ Connection OK");
+      });
+
+      socket.on("trade", (trade) => {
+        const log = makeLog(trade);
+        logMessage(`📈 ${log}`);
+
+        // Update chart with the new trade data
+        drawChart(trade);
+      });
+
+      socket.on("disconnect", () => {
+        logMessage("⚠️ Disconnected from server");
+      });
+
+      socket.on("error", (error) => {
+        logMessage(`❌ Error: ${error.message}`);
+      });
+
+      startBtn.onclick = async () => {
+        try {
+          const res = await BotAPI.startBot();
+          const data = await res.json();
+          logMessage(`✅ ${data.message}`);
+        } catch (error) {
+          logMessage(`❌ Error starting bot: ${error.message}`);
+        }
+      };
+
+      stopBtn.onclick = async () => {
+        try {
+          const res = await BotAPI.stopBot();
+          const data = await res.json();
+          logMessage(`🛑 ${data.message}`);
+        } catch (error) {
+          logMessage(`❌ Error stopping bot: ${error.message}`);
+        }
+      };
+
+      settingsBtn.onclick = () => {
+        // Open settings tab
+        const event = { currentTarget: document.querySelector('.tablinks:nth-child(2)') };
+        openTab(event, 'settingsTab');
+      };
+
+      saveSettingsBtn.onclick = async () => {
+        try {
+          const settings = getSettingsFromForm();
+          const res = await BotAPI.updateSettings(settings);
+          const data = await res.json();
+          logMessage(`✅ Settings saved: ${data.message || 'Success'}`);
+          
+          // Switch back to log tab
+          const event = { currentTarget: document.querySelector('.tablinks:first-child') };
+          openTab(event, 'logTab');
+        } catch (error) {
+          logMessage(`❌ Error saving settings: ${error.message}`);
+        }
+      };
+
+      cancelSettingsBtn.onclick = async () => {
+        try {
+          // Reload settings from server
+          const settings = await BotAPI.getSettings();
+          updateSettingsForm(settings);
+          
+          // Switch back to log tab
+          const event = { currentTarget: document.querySelector('.tablinks:first-child') };
+          openTab(event, 'logTab');
+        } catch (error) {
+          logMessage(`⚠️ Could not reload settings: ${error.message}`);
+        }
+      };
+
+      // Initialize when the page loads
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

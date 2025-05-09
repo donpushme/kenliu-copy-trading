@@ -3,8 +3,7 @@ import express, { Request, Response } from "express";
 import botRouter from "./route/bot";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
-import { createServer } from "./http";
-import { initializeSocketServer } from "./socket-server";
+import cors from "cors";
 
 dotenv.config();
 
@@ -13,6 +12,8 @@ const app = express();
 
 // Middleware
 app.use(bodyParser.json());
+
+app.use(cors())
 
 // Basic health check endpoint
 app.get("/health", (req: Request, res: Response) => {

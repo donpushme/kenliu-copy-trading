@@ -13,6 +13,10 @@ export interface ITrade extends Document {
   updatedAt: Date;
 }
 
+export interface TradeModel extends mongoose.Model<ITrade> {
+  findByPublicKey(publicKey: string): Promise<ITrade[]>;
+}
+
 // Create the schema
 const TradeSchema: Schema = new Schema(
   {
@@ -44,6 +48,9 @@ const TradeSchema: Schema = new Schema(
   }
 );
 
-// Create and export the model
-const Trade = mongoose.model<ITrade>("Trade", TradeSchema);
+TradeSchema.statics.findByPublicKey = function (publicKey: string) {
+  return this.find({ publicKey });
+};
+
+const Trade = mongoose.model<ITrade, TradeModel>("Trade", TradeSchema);
 export default Trade;
