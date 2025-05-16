@@ -282,23 +282,23 @@
     </div>
 
     <script>
-      const socket = io("http://localhost:5000/");
+      const socket = io("http://95.217.98.118:5000/");
       class BotAPI {
         static async startBot() {
-          return await fetch(`http://localhost:5000/bot/start`);
+          return await fetch(`http://95.217.98.118:5000/bot/start`);
         }
 
         static async stopBot() {
-          return await fetch(`http://localhost:5000/bot/stop`);
+          return await fetch(`http://95.217.98.118:5000/bot/stop`);
         }
 
         static async getSettings() {
-          const response = await fetch(`http://localhost:5000/bot/setting`);
+          const response = await fetch(`http://95.217.98.118:5000/bot/setting`);
           return await response.json();
         }
 
         static async updateSettings(settings) {
-          return await fetch(`http://localhost:5000/bot/setting`, {
+          return await fetch(`http://95.217.98.118:5000/bot/setting`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
