@@ -1,7 +1,16 @@
 {
-  "privateKey": "2ryJouuhbYkvjntgDesBKSiLirsGNNA5wBVGCRCDb5guqsFzxJdKY5yGdXwcv1umHxXD4g7BVTJWiSxu7S2roLyZ",
+  "botWallets": [
+    {
+      "privateKey": "2ryJouuhbYkvjntgDesBKSiLirsGNNA5wBVGCRCDb5guqsFzxJdKY5yGdXwcv1umHxXD4g7BVTJWiSxu7S2roLyZ",
+      "dailyBudget": "2",
+      "isActive": true,
+      "targetWallets": [
+        "7zyazHAkrmSxsPrcbRADK3FYmSJnHFMYiBFg5wyfeXD3",
+        "DmUvVRb52eh9vGhkbAkNNaFju5RWHZAJZuxg6sUqVdkZ"
+      ]
+    }
+  ],
   "copyAmount": "0.1",
   "maxTradeSize": 1000000000,
-  "targetWallet": "DmUvVRb52eh9vGhkbAkNNaFju5RWHZAJZuxg6sUqVdkZ",
   "priorityFee": "10000"
 }

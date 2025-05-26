@@ -37,11 +37,7 @@ const BASE_MINT_ADDRESS = process.env.BASE_MINT_ADDRESS;
 const BUY_AMOUNT = Number(process.env.BUY_AMOUNT) || 0.001;
 
 const solanaConnection = new Connection(process.env.RPC_ENDPOINT!, "confirmed");
-
-const TARGET_ADDRESS = process.env.TARGET_ADDRESS!;
 const IS_JITO = process.env.IS_JITO!;
-
-if (!TARGET_ADDRESS) console.log("Target Address is not defined");
 
 function sendRequest(ws: WebSocket, account: string) {
   const request = {
@@ -242,16 +238,16 @@ async function handleData(data: any) {
 }
 
 // Check token balance change of target wallet
-const filterAccount = (accounts: any[], token: string): any | null => {
+const filterAccount = (accounts: any[], owner: PublicKey, token: string): any | null => {
   return (
     accounts?.find((account) => {
       if (token === "") {
         return (
-          account.owner === TARGET_ADDRESS && account.mint != BASE_MINT_ADDRESS
+          account.owner === owner && account.mint != BASE_MINT_ADDRESS
         );
       } else if (token === "base") {
         return (
-          account.owner === TARGET_ADDRESS && account.mint == BASE_MINT_ADDRESS
+          account.owner === owner && account.mint == BASE_MINT_ADDRESS
         );
       } else if (token === "sol") {
         return account.mint == BASE_MINT_ADDRESS;
@@ -274,11 +270,12 @@ const filterSolAccount = (accounts: any[]): any | null => {
 const getBalanceChange = (data: any, token: string): number | null => {
   const preAccounts = data.transaction?.meta?.preTokenBalances;
   const postAccounts = data.transaction?.meta?.postTokenBalances;
+  const owner = new PublicKey(data.transaction.message.accountKeys[0].pubkey);
 
   if (preAccounts == undefined || postAccounts == undefined) return null;
 
-  const preAccount = filterAccount(preAccounts, token);
-  const postAccount = filterAccount(postAccounts, token);
+  const preAccount = filterAccount(preAccounts, owner, token);
+  const postAccount = filterAccount(postAccounts, owner, token);
   // if (!preAccount && !postAccount) return null;
 
   const preBalance = preAccount ? preAccount.uiTokenAmount?.uiAmount : 0;
@@ -296,16 +293,18 @@ const getSolBalanceChange = (data: any): number => {
 // Get Token mint
 const getMintAccount = (data: any): string | null => {
   const preAccounts = data.transaction?.meta?.preTokenBalances;
+  const owner = new PublicKey(data.transaction.message.accountKeys[0].pubkey);
   if (preAccounts == undefined) return null;
-  const preAccount = filterAccount(preAccounts, "");
+  const preAccount = filterAccount(preAccounts, owner, "");
   if (preAccount) return preAccount.mint;
   else return null;
 };
 
 const getTokenDecimals = (data: any): number | null => {
   const preAccounts = data.transaction?.meta?.preTokenBalances;
+  const owner = new PublicKey(data.transaction.message.accountKeys[0].pubkey);
   if (preAccounts == undefined) return null;
-  const preAccount = filterAccount(preAccounts, "");
+  const preAccount = filterAccount(preAccounts, owner, "");
   if (preAccount) return preAccount.uiTokenAmount.decimals;
   else return null;
 };
