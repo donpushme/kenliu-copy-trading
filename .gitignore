@@ -1,2 +1,3 @@
 .env
+bot/settings.json
 node_modules

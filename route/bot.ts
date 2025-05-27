@@ -4,8 +4,8 @@ import { setting, startBot, stopBot, fetchSettings } from "../controller/bot.con
 const router: Router = Router();
 
 router.get("/status");
-router.get("/start", startBot);
-router.get("/stop", stopBot);
+router.get("/start/:id", startBot);
+router.get("/stop/:id", stopBot);
 router.get("/setting", fetchSettings);
 router.post("/setting", setting);
 

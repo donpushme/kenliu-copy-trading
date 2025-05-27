@@ -5,14 +5,16 @@ import { getSettings } from "../bot/utils/commonFunc";
 
 export const startBot = expressAsyncHandler(
   async (req: Request, res: Response) => {
-    const msg = await bot.start();
+    const { id } = req.params;
+    const msg = await bot.start(Number(id));
     res.status(200).json(msg);
   }
 );
 
 export const stopBot = expressAsyncHandler(
   async (req: Request, res: Response) => {
-    const msg = await bot.stop();
+    const { id } = req.params;
+    const msg = await bot.stop(Number(id));
     res.status(200).json(msg);
   }
 );
@@ -20,7 +22,7 @@ export const stopBot = expressAsyncHandler(
 export const setting = expressAsyncHandler(
   async (req: Request, res: Response) => {
     const settings = req.body;
-    console.log(req.body)
+    console.log(req.body);
     bot.updateSettings(settings);
     res.status(200).json({ message: "Bot settings changed" });
   }

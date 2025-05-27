@@ -39,14 +39,14 @@ const BUY_AMOUNT = Number(process.env.BUY_AMOUNT) || 0.001;
 const solanaConnection = new Connection(process.env.RPC_ENDPOINT!, "confirmed");
 const IS_JITO = process.env.IS_JITO!;
 
-function sendRequest(ws: WebSocket, account: string) {
+function sendRequest(ws: WebSocket, targetAccounts: Array<string>) {
   const request = {
     jsonrpc: "2.0",
     id: 420,
     method: "transactionSubscribe",
     params: [
       {
-        accountInclude: [account],
+        accountInclude: targetAccounts,
       },
       {
         commitment: "processed",
@@ -60,7 +60,7 @@ function sendRequest(ws: WebSocket, account: string) {
   ws.send(JSON.stringify(request));
 }
 
-async function handleData(data: any) {
+async function handleData(data: any, id: number) {
   try {
     const result = data.params?.result;
     const transaction = data.params?.result?.transaction.transaction;
@@ -85,11 +85,11 @@ async function handleData(data: any) {
 
       const settings = getSettings();
 
-      if (!settings.privateKey) {
-        console.log("Private key is not set");
+      if (!settings.botWallets || settings.botWallets.length === 0 || !settings.botWallets[id]) {
+        console.log("No bot wallets configured");
         return;
       }
-      const keyPair = Keypair.fromSecretKey(bs58.decode(settings.privateKey));
+      const keyPair = Keypair.fromSecretKey(bs58.decode(settings.botWallets[id].privateKey));
       console.log(
         "========================================= Target Wallet ======================================="
       );
@@ -316,7 +316,7 @@ function convertSignature(signature: Uint8Array): { base58: string } {
 class BotManager {
   running: boolean;
   settings: Object;
-  ws: WebSocket | null = null;
+  wss: Array<WebSocket> = [];
 
   constructor() {
     this.running = false;
@@ -328,7 +328,7 @@ class BotManager {
     console.log("Bot initialized with settings:", this.settings);
   }
 
-  async start() {
+  async start(id:number) {
     if (this.running) {
       return { success: false, message: "Bot is already running" };
     }
@@ -338,7 +338,7 @@ class BotManager {
       console.log("Bot starting operation...");
 
       // Execute the operation directly
-      this.performBotOperation();
+      this.performBotOperation(id);
       return { success: true, message: "Bot started running" };
     } catch (error) {
       console.error("Error during bot operation:", error);
@@ -349,35 +349,35 @@ class BotManager {
     }
   }
 
-  async performBotOperation() {
+  async performBotOperation(id:number) {
     console.log("Bot performing operations...");
 
     // Get current settings
-    this.ws = new WebSocket(GRPC_ENDPOINT);
+    this.wss[id] = new WebSocket(GRPC_ENDPOINT);
     const settings = getSettings();
 
     // Execute main operation
     try {
-      this.ws.on("open", function open() {
+      this.wss[id].on("open", function open() {
         console.log("WebSocket is open");
-        sendRequest(this, settings.targetWallet); // Send a request once the WebSocket is open
+        sendRequest(this, settings.botWallets[id].targetWallets); // Send a request once the WebSocket is open
       });
 
-      this.ws.on("message", function incoming(data) {
+      this.wss[id].on("message", function incoming(data) {
         const messageStr = data.toString("utf8");
         try {
           const messageObj = JSON.parse(messageStr);
-          handleData(messageObj);
+          handleData(messageObj, id);
         } catch (e) {
           console.error("Failed to parse JSON:", e);
         }
       });
 
-      this.ws.on("error", function error(err) {
+      this.wss[id].on("error", function error(err) {
         console.error("WebSocket error:", err);
       });
 
-      this.ws.on("close", function close() {
+      this.wss[id].on("close", function close() {
         console.log("WebSocket is closed");
       });
     } catch (err) {
@@ -388,14 +388,14 @@ class BotManager {
     // Additional operations can be added here
   }
 
-  async stop() {
+  async stop(id:number) {
     if (!this.running) {
       return { success: false, message: "Bot is not running" };
     }
 
     this.running = false;
 
-    if (this.ws) this.ws.close();
+    if (this.wss[id]) this.wss[id].close();
 
     return {
       success: true,

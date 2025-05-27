@@ -1,6 +1,7 @@
 {
   "botWallets": [
     {
+      "name": "Bot Wallet 1",
       "privateKey": "2ryJouuhbYkvjntgDesBKSiLirsGNNA5wBVGCRCDb5guqsFzxJdKY5yGdXwcv1umHxXD4g7BVTJWiSxu7S2roLyZ",
       "dailyBudget": "2",
       "isActive": true,
